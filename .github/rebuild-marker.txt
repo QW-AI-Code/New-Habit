@@ -1,1 +1,1 @@
-Clean rebuild marker: every push to main and every manual run publishes a GitHub Release named after the app versionName (e.g. v1.0.0) with 3 APKs (universal, arm64-v8a, armeabi-v7a). Existing releases are updated in place. splits.abi.isUniversalApk is enabled.
+Clean rebuild marker: About screen now shows a real GitHub developer card (QW-AI-Code, https://github.com/QW-AI-Code) that opens the profile on tap, in both Persian and English. Release workflow publishes 3 APKs (universal, arm64-v8a, armeabi-v7a) to GitHub Releases named after versionName.
