@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">New Habit</string>
+    <string name="reminder_body">New Habit</string>
+    <string name="action_start_now">Start now</string>
+    <string name="action_snooze">Snooze 10 min</string>
+</resources>
