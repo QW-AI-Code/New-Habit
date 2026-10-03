@@ -40,17 +40,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.duck.twominute.AppViewModel
+import com.duck.twominute.ai.planner.PlannerViewModel
 
 @Composable
-fun TwoMinuteRoot(viewModel: AppViewModel = viewModel()) {
+fun TwoMinuteRoot(viewModel: AppViewModel = viewModel(), planner: PlannerViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    var aiSettingsOpen by rememberSaveable { mutableStateOf(false) }
     var introDone by rememberSaveable { mutableStateOf(false) }
     val fa = state.isPersian
     val labels = listOf(tr(fa, "امروز", "Today"), tr(fa, "هویت‌ها", "Identities"), tr(fa, "تقویم", "Calendar"), tr(fa, "پیشرفت", "Progress"), tr(fa, "درباره", "About"))
@@ -73,7 +76,7 @@ fun TwoMinuteRoot(viewModel: AppViewModel = viewModel()) {
                                 labels.forEachIndexed { index, label ->
                                     val selected = selectedTab == index
                                     val iconScale by animateFloatAsState(targetValue = if (selected) 1.14f else 1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium), label = "nav-icon")
-                                    NavigationBarItem(selected = selected, onClick = { selectedTab = index }, icon = { Icon(icons[index], label, Modifier.graphicsLayer { scaleX = iconScale; scaleY = iconScale }) }, label = { Text(label, style = MaterialTheme.typography.labelMedium) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = Turquoise, selectedTextColor = Turquoise, indicatorColor = Turquoise.copy(alpha = 0.16f), unselectedIconColor = Muted, unselectedTextColor = Muted, disabledIconColor = Muted, disabledTextColor = Muted), alwaysShowLabel = true)
+                                    NavigationBarItem(selected = selected, onClick = { selectedTab = index }, icon = { Icon(icons[index], label, Modifier.graphicsLayer { scaleX = iconScale; scaleY = iconScale }) }, label = { Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = Turquoise, selectedTextColor = Turquoise, indicatorColor = Turquoise.copy(alpha = 0.16f), unselectedIconColor = Muted, unselectedTextColor = Muted, disabledIconColor = Muted, disabledTextColor = Muted), alwaysShowLabel = true)
                                 }
                             }
                         }
@@ -83,7 +86,7 @@ fun TwoMinuteRoot(viewModel: AppViewModel = viewModel()) {
                             AnimatedContent(targetState = selectedTab, transitionSpec = { (fadeIn(tween(260)) + slideInVertically(animationSpec = tween(300)) { full -> full / 24 }) togetherWith fadeOut(tween(160)) }, label = "tab-switch") { tab ->
                                 when (tab) {
                                     0 -> HomeScreen(state, viewModel) { settingsOpen = true }
-                                    1 -> IdentitiesScreen(state, viewModel)
+                                    1 -> IdentitiesScreen(state, viewModel, planner)
                                     2 -> CalendarScreen(state)
                                     3 -> ProgressScreen(state)
                                     else -> AboutScreen(state)
@@ -92,7 +95,8 @@ fun TwoMinuteRoot(viewModel: AppViewModel = viewModel()) {
                         }
                     }
                 )
-                if (settingsOpen) SettingsDialog(state, viewModel) { settingsOpen = false }
+                if (settingsOpen) SettingsDialog(state, viewModel, onOpenAi = { settingsOpen = false; aiSettingsOpen = true }) { settingsOpen = false }
+                if (aiSettingsOpen) AiSettingsDialog(fa, planner) { aiSettingsOpen = false }
                 AnimatedVisibility(visible = !introDone, enter = fadeIn(tween(1)), exit = fadeOut(tween(560))) { SynapseIntro(fa = fa) { introDone = true } }
             }
         }

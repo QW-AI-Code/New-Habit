@@ -55,7 +55,7 @@ fun AboutScreen(state: AppState) {
             Icon(Icons.Rounded.Psychology, null, tint = Turquoise, modifier = Modifier.size(42.dp))
             Spacer(Modifier.height(10.dp))
             Text(tr(fa, "ساخت عادت جدید", "New Habit"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text(tr(fa, "نسخه ۱.۰.۰", "Version 1.0.0"), color = Muted, style = MaterialTheme.typography.bodyMedium)
+            Text(tr(fa, "نسخه ۱.۰.۱", "Version 1.0.1"), color = Muted, style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(16.dp))
             Text(tr(fa, "یک ابزار ساده و حرفه‌ای برای ساختن عادت‌ها بر پایه هویتی که می‌خواهی بسازی.", "A focused habit tool for building the identity you want through small, repeatable habits."), color = Ink, style = MaterialTheme.typography.bodyLarge)
         }

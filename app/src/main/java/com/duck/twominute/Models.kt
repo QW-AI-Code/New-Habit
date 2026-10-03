@@ -23,8 +23,11 @@ data class Identity(
     val durationSeconds: Int = DEFAULT_DURATION,
     /** How many repetitions count as a finished day. */
     val timesPerDay: Int = 1,
+    /** v1.0.0 single reminder. Still written (mirrors the first slot) so a downgrade keeps working. */
     val reminderHour: Int? = null,
     val reminderMinute: Int? = null,
+    /** One entry per repetition of the day; see [reminderSlots]. Added in v1.0.1. */
+    val reminderTimes: List<ReminderTime> = emptyList(),
     /** ISO weekdays (1 = Monday .. 7 = Sunday). Empty means every day. */
     val reminderDays: List<Int> = emptyList(),
     val soundUri: String? = null,
@@ -43,13 +46,41 @@ data class Identity(
     fun why(fa: Boolean): String =
         if (fa) whyFa.ifBlank { whyEn } else whyEn.ifBlank { whyFa }
 
-    fun hasReminder(): Boolean = reminderHour != null
+    fun hasReminder(): Boolean = reminderTimes.isNotEmpty() || reminderHour != null
+
+    /**
+     * The reminders that are actually scheduled: exactly [safeTimesPerDay] distinct
+     * times when reminders are on, nothing when they are off. A v1.0.0 identity
+     * that stored one time for several repetitions is grown to the right count here.
+     */
+    fun reminderSlots(): List<ReminderTime> {
+        val stored = when {
+            reminderTimes.isNotEmpty() -> reminderTimes
+            reminderHour != null -> listOf(ReminderTime(reminderHour, reminderMinute ?: 0))
+            else -> return emptyList()
+        }
+        return ReminderPlanner.fit(stored, safeTimesPerDay)
+    }
+
+    /** Stores [slots] fitted to the repetitions of the day; an empty list switches reminders off. */
+    fun withReminders(slots: List<ReminderTime>): Identity {
+        if (slots.isEmpty()) return copy(reminderTimes = emptyList(), reminderHour = null, reminderMinute = null)
+        val fitted = ReminderPlanner.fit(slots, safeTimesPerDay)
+        val first = fitted.first()
+        return copy(reminderTimes = fitted, reminderHour = first.hour, reminderMinute = first.minute)
+    }
+
+    /** Changes the repetitions of the day and keeps the reminder count equal to it. */
+    fun withTimesPerDay(times: Int): Identity {
+        val updated = copy(timesPerDay = times.coerceIn(1, MAX_TIMES_PER_DAY))
+        return if (hasReminder()) updated.withReminders(reminderSlots()) else updated
+    }
 
     val safeDuration: Int
         get() = durationSeconds.coerceIn(MIN_DURATION, MAX_DURATION)
 
     val safeTimesPerDay: Int
-        get() = timesPerDay.coerceIn(1, 20)
+        get() = timesPerDay.coerceIn(1, MAX_TIMES_PER_DAY)
 
     /** Every day when reminderDays is empty, otherwise only the picked weekdays. */
     fun runsOn(date: LocalDate): Boolean =
@@ -59,6 +90,20 @@ data class Identity(
         val days = LinkedHashSet<LocalDate>(successes.size)
         successes.forEach { days.add(it.toLocalDate()) }
         return days
+    }
+
+    /**
+     * Days on which every repetition was done. With "3 times a day" a day with a
+     * single log is progress, not a finished day, so it must not extend a streak.
+     */
+    fun completedDates(): Set<LocalDate> {
+        val counts = HashMap<LocalDate, Int>()
+        successes.forEach { stamp ->
+            val day = stamp.toLocalDate()
+            counts[day] = (counts[day] ?: 0) + 1
+        }
+        val goal = safeTimesPerDay
+        return counts.filterValues { it >= goal }.keys
     }
 
     fun countOn(date: LocalDate): Int = successes.count { it.toLocalDate() == date }
@@ -77,7 +122,7 @@ data class Identity(
      * actually finished.
      */
     fun currentStreak(today: LocalDate = LocalDate.now()): Int {
-        val days = successDates()
+        val days = completedDates()
         if (days.isEmpty()) return 0
         var cursor = if (days.contains(today)) today else today.minusDays(1)
         var streak = 0
@@ -94,13 +139,25 @@ data class Identity(
         return streak
     }
 
+    /** Same rules as [currentStreak]: a day the identity does not run on never breaks a chain. */
     fun bestStreak(): Int {
-        val days = successDates().sorted()
+        val days = completedDates().sorted()
         if (days.isEmpty()) return 0
         var best = 1
         var run = 1
         for (index in 1 until days.size) {
-            run = if (days[index - 1].plusDays(1) == days[index]) run + 1 else 1
+            var gapBreaks = false
+            var cursor = days[index - 1].plusDays(1)
+            var guard = 0
+            while (cursor.isBefore(days[index]) && guard < 4000) {
+                guard += 1
+                if (runsOn(cursor)) {
+                    gapBreaks = true
+                    break
+                }
+                cursor = cursor.plusDays(1)
+            }
+            run = if (gapBreaks) 1 else run + 1
             if (run > best) best = run
         }
         return best
@@ -108,7 +165,7 @@ data class Identity(
 
     /** Share of the last [window] days that were completed, as 0f..1f. */
     fun consistency(window: Int = 30, today: LocalDate = LocalDate.now()): Float {
-        val days = successDates()
+        val days = completedDates()
         var scheduled = 0
         var hit = 0
         for (back in 0 until window) {
@@ -128,6 +185,7 @@ data class Identity(
         const val DEFAULT_DURATION = 120
         const val MIN_DURATION = 10
         const val MAX_DURATION = 7200
+        const val MAX_TIMES_PER_DAY = ReminderPlanner.MAX_SLOTS
 
         val DURATION_PRESETS = listOf(30, 60, 120, 300, 600, 900, 1200, 1800)
     }

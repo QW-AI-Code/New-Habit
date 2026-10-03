@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -69,6 +70,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -108,8 +110,24 @@ fun IdentityAvatar(identity: Identity, size: Dp = 44.dp) {
     }
 }
 
+/**
+ * A rounded chip-button.
+ *
+ * Its label is laid out on one line by default ([maxLines]) and ends in "…" if
+ * the space really runs out, so a squeezed pill can never break its word into a
+ * column of single letters (the v1.0.1 «افزودن» bug). The icon comes first in the
+ * row, so it keeps its size; the label takes what is left.
+ */
 @Composable
-fun Pill(text: String, icon: ImageVector? = null, accent: Color = Turquoise, selected: Boolean = false, onClick: (() -> Unit)? = null) {
+fun Pill(
+    text: String,
+    icon: ImageVector? = null,
+    accent: Color = Turquoise,
+    selected: Boolean = false,
+    modifier: Modifier = Modifier,
+    maxLines: Int = 1,
+    onClick: (() -> Unit)? = null
+) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -122,7 +140,7 @@ fun Pill(text: String, icon: ImageVector? = null, accent: Color = Turquoise, sel
     val label by animateColorAsState(targetValue = if (selected) Navy else Ink, animationSpec = tween(240), label = "pill-label")
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
+        modifier = modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(RoundedCornerShape(50))
             .background(container)
@@ -134,7 +152,44 @@ fun Pill(text: String, icon: ImageVector? = null, accent: Color = Turquoise, sel
             Icon(icon, null, tint = if (selected) Navy else accent, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(6.dp))
         }
-        Text(text, color = label, style = MaterialTheme.typography.labelLarge)
+        Text(
+            text,
+            color = label,
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = maxLines.coerceAtLeast(1),
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/**
+ * Screen title with its action buttons.
+ *
+ * Laid out as a flow: when the title and the actions fit side by side they share
+ * one line (title at the start, actions at the end); when they do not — a narrow
+ * phone, a large system font, a longer English label — the actions move to their
+ * own line instead of being squeezed. Nothing is ever compressed into a column.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun ScreenHeader(title: String, modifier: Modifier = Modifier, actions: @Composable RowScope.() -> Unit = {}) {
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.CenterVertically).padding(end = 12.dp)
+        )
+        Row(
+            modifier = Modifier.align(Alignment.CenterVertically),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            content = actions
+        )
     }
 }
 
@@ -326,7 +381,7 @@ fun TimerDial(
                 .clickable(interactionSource = interaction, indication = null) { onClick() },
             contentAlignment = Alignment.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 18.dp)) {
                 Crossfade(targetState = active, label = "dial-icon") { isActive ->
                     Icon(
                         if (isActive) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
@@ -336,13 +391,16 @@ fun TimerDial(
                     )
                 }
                 Spacer(Modifier.height(2.dp))
-                Text(timeText, fontSize = 38.sp, fontWeight = FontWeight.Bold, color = if (running) Ink else Navy)
+                Text(timeText, fontSize = 38.sp, fontWeight = FontWeight.Bold, color = if (running) Ink else Navy, maxLines = 1)
                 if (hintText.isNotBlank()) {
+                    // While running this is the identity title: keep it inside the circle.
                     Text(
                         hintText,
                         fontSize = 12.sp,
                         color = if (running) Muted else Navy.copy(alpha = 0.72f),
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -354,11 +412,12 @@ fun TimerDial(
 fun Stepper(label: String, value: String, accent: Color = Turquoise, onMinus: () -> Unit, onPlus: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (label.isNotBlank()) {
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = Muted)
+            // The buttons keep their size; a long label wraps instead of pushing them away.
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = Muted, modifier = Modifier.weight(1f, fill = false))
             Spacer(Modifier.width(10.dp))
         }
         StepperButton(Icons.Rounded.Remove, accent, onMinus)
-        Text(value, Modifier.width(60.dp), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = Ink)
+        Text(value, Modifier.width(60.dp), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = Ink, maxLines = 1)
         StepperButton(Icons.Rounded.Add, accent, onPlus)
     }
 }
@@ -443,6 +502,7 @@ fun ReminderTimeDialog(
     initialHour: Int,
     initialMinute: Int,
     accent: Color = Turquoise,
+    title: String? = null,
     onLiveChange: (Int, Int) -> Unit = { _, _ -> },
     onDismiss: () -> Unit,
     onConfirm: (Int, Int) -> Unit
@@ -459,7 +519,7 @@ fun ReminderTimeDialog(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(tr(fa, "زمان یادآور", "Reminder time"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(title ?: tr(fa, "زمان یادآور", "Reminder time"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
             Text(
                 tr(fa, "هر تغییری بدهی، همان لحظه اینجا نمایش داده می‌شود", "Whatever you pick shows up here instantly"),

@@ -57,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -188,7 +189,8 @@ fun HomeScreen(state: AppState, viewModel: AppViewModel, onOpenSettings: () -> U
                                 text = tr(fa, "هویت بعدی", "NEXT IDENTITY"),
                                 color = shownAccent,
                                 fontSize = 12.sp,
-                                letterSpacing = 1.1.sp
+                                // Letter spacing tears joined Persian letters apart; only Latin caps get it.
+                                letterSpacing = if (fa) 0.sp else 1.1.sp
                             )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
@@ -464,17 +466,24 @@ private fun ChecklistRow(
     ) {
         IdentityAvatar(identity = identity, size = 36.dp)
         Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
+        // The card grows with its text: v1.0.1 forced one line and the second
+        // line was drawn half-hidden under the card edge. Now the title gets up to
+        // two lines and the habit up to three, each ending in "…" if still longer.
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = identity.title(fa),
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
+            val ritual = identity.ritual(fa)
             Text(
-                text = durationLabel(identity.safeDuration, fa) + " · " + identity.ritual(fa),
+                text = if (ritual.isBlank()) durationLabel(identity.safeDuration, fa) else durationLabel(identity.safeDuration, fa) + " · " + ritual,
                 style = MaterialTheme.typography.bodySmall,
                 color = Muted,
-                maxLines = 1
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
             )
         }
         Spacer(modifier = Modifier.width(10.dp))

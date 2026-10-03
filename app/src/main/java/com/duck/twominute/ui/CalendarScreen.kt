@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import com.duck.twominute.AppState
 import com.duck.twominute.JalaliDate
 import com.duck.twominute.PersianDate
@@ -49,6 +52,7 @@ import java.util.Locale
 private val persianWeekLabels = listOf("ش", "ی", "د", "س", "چ", "پ", "ج")
 private val gregorianWeekLabels = listOf("S", "M", "T", "W", "T", "F", "S")
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CalendarScreen(state: AppState) {
     val fa = state.isPersian
@@ -69,14 +73,14 @@ fun CalendarScreen(state: AppState) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 18.dp)) {
         Text(tr(fa, "تقویم", "Calendar"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Pill(tr(fa, "شمسی", "Jalali"), selected = jalaliMode) { jalaliMode = true }
             Pill(tr(fa, "میلادی", "Gregorian"), selected = !jalaliMode) { jalaliMode = false }
         }
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             IconButton({ monthOffset -= 1 }) { Icon(Icons.Rounded.ChevronLeft, null, tint = Turquoise) }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(headerTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold); Text(headerSubtitle, style = MaterialTheme.typography.bodySmall, color = Muted) }
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) { Text(headerTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold); Text(headerSubtitle, style = MaterialTheme.typography.bodySmall, color = Muted) }
             IconButton({ monthOffset += 1 }) { Icon(Icons.Rounded.ChevronRight, null, tint = Turquoise) }
         }
         Spacer(Modifier.height(10.dp))
@@ -116,9 +120,10 @@ private fun DayCell(modifier: Modifier, date: LocalDate?, jalaliMode: Boolean, t
             val isToday = date == today; val isSelected = date == selected; val met = completions >= goal && completions > 0
             val raw = if (jalaliMode) PersianDate.fromGregorian(date).day.toString() else date.dayOfMonth.toString()
             val label = if (jalaliMode) raw.toPersianDigits() else raw
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.aspectRatio(1f).padding(3.dp).background(when { met -> Turquoise.copy(alpha=.22f); completions > 0 -> Turquoise.copy(alpha=.1f); isSelected -> RaisedNavy; else -> androidx.compose.ui.graphics.Color.Transparent }, CircleShape).border(if (isToday || isSelected) 1.dp else 0.dp, when { isToday -> Turquoise; isSelected -> Muted; else -> androidx.compose.ui.graphics.Color.Transparent }, CircleShape).clickable { onSelect(date) }.padding(top = 7.dp)) {
-                Text(label, style = MaterialTheme.typography.bodyMedium, color = if (isToday) Turquoise else Ink, fontWeight = if (isToday || met) FontWeight.Bold else FontWeight.Normal)
-                Spacer(Modifier.height(3.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center, modifier = Modifier.aspectRatio(1f).padding(3.dp).background(when { met -> Turquoise.copy(alpha=.22f); completions > 0 -> Turquoise.copy(alpha=.1f); isSelected -> RaisedNavy; else -> androidx.compose.ui.graphics.Color.Transparent }, CircleShape).border(if (isToday || isSelected) 1.dp else 0.dp, when { isToday -> Turquoise; isSelected -> Muted; else -> androidx.compose.ui.graphics.Color.Transparent }, CircleShape).clickable { onSelect(date) }) {
+                // Digits need no tall Persian line box; a compact one keeps the number and its dots inside the circle.
+                Text(label, style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 1.25.em), maxLines = 1, color = if (isToday) Turquoise else Ink, fontWeight = if (isToday || met) FontWeight.Bold else FontWeight.Normal)
+                Spacer(Modifier.height(2.dp))
                 if (completions > 0) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) { repeat(completions.coerceAtMost(3)) { Box(Modifier.size(4.dp).background(Turquoise, CircleShape)) } }
             }
         }

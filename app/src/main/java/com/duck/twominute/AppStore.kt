@@ -23,19 +23,36 @@ class AppStore(context: Context) {
         prettyPrint = true
     }
 
-    val state: Flow<AppState> = dataStore.data.map { preferences ->
-        val raw = preferences[STATE_KEY] ?: return@map AppState()
-        try {
-            json.decodeFromString(AppState.serializer(), raw)
-        } catch (error: Exception) {
-            Log.w("AppStore", "Stored state is unreadable, starting fresh", error)
-            AppState()
-        }
-    }
+    val state: Flow<AppState> = dataStore.data.map { preferences -> read(preferences) }
 
     suspend fun save(value: AppState) {
         dataStore.edit { preferences ->
             preferences[STATE_KEY] = encode(value)
+        }
+    }
+
+    /**
+     * Read-modify-write in ONE DataStore transaction. v1.0.0 read the state and saved
+     * it in two separate steps, so two quick taps (or a tap and a notification
+     * action) could overwrite each other's change. Returns the state that was written.
+     */
+    suspend fun update(transform: (AppState) -> AppState): AppState {
+        var written = AppState()
+        dataStore.edit { preferences ->
+            val next = transform(read(preferences))
+            preferences[STATE_KEY] = encode(next)
+            written = next
+        }
+        return written
+    }
+
+    private fun read(preferences: Preferences): AppState {
+        val raw = preferences[STATE_KEY] ?: return AppState()
+        return try {
+            json.decodeFromString(AppState.serializer(), raw)
+        } catch (error: Exception) {
+            Log.w("AppStore", "Stored state is unreadable, starting fresh", error)
+            AppState()
         }
     }
 

@@ -15,6 +15,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -22,9 +23,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.em
 import com.duck.twominute.R
+import com.duck.twominute.toPersianDigits
 import java.util.Locale
 
 val Navy = Color(0xFF04090F)
@@ -79,10 +84,14 @@ fun formatClock(seconds: Int): String {
     return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, rest) else "%02d:%02d".format(minutes, rest)
 }
 
-fun durationLabel(seconds: Int, fa: Boolean): String = when {
-    seconds < 60 -> tr(fa, "$seconds ثانیه", "${seconds}s")
-    seconds % 60 == 0 -> tr(fa, "${seconds / 60} دقیقه", "${seconds / 60}m")
-    else -> formatClock(seconds)
+fun durationLabel(seconds: Int, fa: Boolean): String {
+    val label = when {
+        seconds < 60 -> tr(fa, "$seconds ثانیه", "${seconds}s")
+        seconds % 60 == 0 -> tr(fa, "${seconds / 60} دقیقه", "${seconds / 60}m")
+        else -> formatClock(seconds)
+    }
+    // Persian UI: Persian digits, so "5 دقیقه" never sits next to "۵ دقیقه".
+    return if (fa) label.toPersianDigits() else label
 }
 
 fun formatReminderTime(hour: Int?, minute: Int?, fa: Boolean): String {
@@ -91,32 +100,59 @@ fun formatReminderTime(hour: Int?, minute: Int?, fa: Boolean): String {
     val m = (minute ?: 0).coerceIn(0, 59)
     val displayHour = if (h == 0) 12 else if (h > 12) h - 12 else h
     val suffix = if (h < 12) tr(fa, "صبح", "AM") else tr(fa, "عصر", "PM")
-    return "%02d:%02d %s".format(Locale.US, displayHour, m, suffix)
+    val label = "%02d:%02d %s".format(Locale.US, displayHour, m, suffix)
+    return if (fa) label.toPersianDigits() else label
 }
 
-val IranSans = FontFamily(
-    Font(R.font.iransans_regular, FontWeight.Normal),
-    Font(R.font.iransans_bold, FontWeight.Bold)
+/**
+ * Vazirmatn (Vazir) for the whole app, Persian and English alike.
+ *
+ * The previous IRANSans files drew some glyph forms wrongly (the three dots of
+ * «پ» came out upside down in bold). Vazirmatn ships correct forms for every
+ * Persian letter plus a matching Latin set, so one family covers both languages.
+ * Five static weights are bundled so Material's Medium/SemiBold styles get a real
+ * cut instead of a synthesized one.
+ */
+val Vazirmatn = FontFamily(
+    Font(R.font.vazirmatn_regular, FontWeight.Normal),
+    Font(R.font.vazirmatn_medium, FontWeight.Medium),
+    Font(R.font.vazirmatn_semibold, FontWeight.SemiBold),
+    Font(R.font.vazirmatn_bold, FontWeight.Bold),
+    Font(R.font.vazirmatn_extrabold, FontWeight.ExtraBold)
 )
 
-private fun typographyWith(family: FontFamily): Typography {
+/**
+ * Persian glyphs are taller than Latin ones (dots above and below, kaf/gaf
+ * strokes). Material's fixed sp line heights are tuned for Latin and clip or
+ * overlap Persian text, so every style gets a line height relative to its own
+ * font size, centred and never trimmed: whatever size a Text uses, its lines
+ * always have room.
+ */
+private fun TextStyle.roomy(family: FontFamily, rtl: Boolean): TextStyle = copy(
+    fontFamily = family,
+    lineHeight = if (rtl) 1.62.em else 1.45.em,
+    lineHeightStyle = LineHeightStyle(alignment = LineHeightStyle.Alignment.Center, trim = LineHeightStyle.Trim.None),
+    letterSpacing = if (rtl) 0.em else letterSpacing
+)
+
+private fun typographyWith(family: FontFamily, rtl: Boolean): Typography {
     val base = Typography()
     return Typography(
-        displayLarge = base.displayLarge.copy(fontFamily = family),
-        displayMedium = base.displayMedium.copy(fontFamily = family),
-        displaySmall = base.displaySmall.copy(fontFamily = family),
-        headlineLarge = base.headlineLarge.copy(fontFamily = family),
-        headlineMedium = base.headlineMedium.copy(fontFamily = family),
-        headlineSmall = base.headlineSmall.copy(fontFamily = family),
-        titleLarge = base.titleLarge.copy(fontFamily = family),
-        titleMedium = base.titleMedium.copy(fontFamily = family),
-        titleSmall = base.titleSmall.copy(fontFamily = family),
-        bodyLarge = base.bodyLarge.copy(fontFamily = family),
-        bodyMedium = base.bodyMedium.copy(fontFamily = family),
-        bodySmall = base.bodySmall.copy(fontFamily = family),
-        labelLarge = base.labelLarge.copy(fontFamily = family),
-        labelMedium = base.labelMedium.copy(fontFamily = family),
-        labelSmall = base.labelSmall.copy(fontFamily = family)
+        displayLarge = base.displayLarge.roomy(family, rtl),
+        displayMedium = base.displayMedium.roomy(family, rtl),
+        displaySmall = base.displaySmall.roomy(family, rtl),
+        headlineLarge = base.headlineLarge.roomy(family, rtl),
+        headlineMedium = base.headlineMedium.roomy(family, rtl),
+        headlineSmall = base.headlineSmall.roomy(family, rtl),
+        titleLarge = base.titleLarge.roomy(family, rtl),
+        titleMedium = base.titleMedium.roomy(family, rtl),
+        titleSmall = base.titleSmall.roomy(family, rtl),
+        bodyLarge = base.bodyLarge.roomy(family, rtl),
+        bodyMedium = base.bodyMedium.roomy(family, rtl),
+        bodySmall = base.bodySmall.roomy(family, rtl),
+        labelLarge = base.labelLarge.roomy(family, rtl),
+        labelMedium = base.labelMedium.roomy(family, rtl),
+        labelSmall = base.labelSmall.roomy(family, rtl)
     )
 }
 
@@ -128,11 +164,11 @@ fun TwoMinuteTheme(
     content: @Composable () -> Unit
 ) {
     val direction = if (rightToLeft) LayoutDirection.Rtl else LayoutDirection.Ltr
-    val typography = typographyWith(IranSans)
+    val typography = remember(rightToLeft) { typographyWith(Vazirmatn, rightToLeft) }
     CompositionLocalProvider(
         LocalLayoutDirection provides direction,
         LocalContentColor provides Ink,
-        LocalTextStyle provides typography.bodyLarge.copy(fontFamily = IranSans, color = Ink)
+        LocalTextStyle provides typography.bodyLarge.copy(color = Ink)
     ) {
         MaterialTheme(colorScheme = TwoMinuteColors, typography = typography, content = content)
     }

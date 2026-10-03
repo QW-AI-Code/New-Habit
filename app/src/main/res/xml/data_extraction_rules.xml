@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: the Gemini API key (DataStore "new_habit_ai") and the token
+     counters never leave the phone, neither by cloud backup nor device transfer. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="datastore/new_habit_ai.preferences_pb" />
+        <exclude domain="file" path="datastore/gemini_token_usage.preferences_pb" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="datastore/new_habit_ai.preferences_pb" />
+        <exclude domain="file" path="datastore/gemini_token_usage.preferences_pb" />
+    </device-transfer>
+</data-extraction-rules>

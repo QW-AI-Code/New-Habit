@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.TwoMinute" parent="android:style/Theme.Material.NoActionBar">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
         <item name="android:windowBackground">@color/navy</item>
         <item name="android:statusBarColor">@color/navy</item>
         <item name="android:navigationBarColor">@color/navy</item>

@@ -46,7 +46,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // ---------------------------------------------------------------- identities
 
     /** Insert or update in one call, so the editor can be reused for both. */
-    fun saveIdentity(identity: Identity) = edit { current ->
+    fun saveIdentity(raw: Identity) = edit { current ->
+        // Enforce the reminder invariant on every save: one slot per repetition.
+        val identity = raw.withReminders(raw.reminderSlots())
         val exists = current.identities.any { it.id == identity.id }
         scheduler.schedule(identity)
         if (exists) {
@@ -56,6 +58,30 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             current.copy(identities = current.identities + identity)
         }
+    }
+
+    /**
+     * Adds the identities the AI planner proposed. Ids are made unique even when
+     * several are created within the same millisecond.
+     */
+    fun addIdentities(newOnes: List<Identity>, onDone: (Int) -> Unit = {}) = viewModelScope.launch {
+        if (newOnes.isEmpty()) {
+            onDone(0)
+            return@launch
+        }
+        var added = 0
+        store.update { current ->
+            var nextId = maxOf(System.currentTimeMillis(), (current.identities.maxOfOrNull { it.id } ?: 0L) + 1)
+            val prepared = newOnes.map { candidate ->
+                val withId = candidate.copy(id = nextId)
+                nextId += 1
+                withId.withReminders(withId.reminderSlots())
+            }
+            prepared.forEach { scheduler.schedule(it) }
+            added = prepared.size
+            current.copy(identities = current.identities + prepared)
+        }
+        onDone(added)
     }
 
     fun deleteIdentity(id: Long) = edit { current ->
@@ -146,6 +172,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             onResult(false)
             return@launch
         }
+        // Alarms of identities that are not in the backup would otherwise keep firing.
+        store.state.first().identities.forEach { scheduler.cancel(it.id) }
         store.save(decoded)
         decoded.identities
             .filter { it.hasReminder() && !it.archived }
@@ -281,9 +309,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         current.copy(identities = stamped, currentIndex = nextIndex)
     }
 
-    // Always reads the persisted value first so no write can be based on a stale snapshot.
+    // One atomic DataStore transaction: no write can be based on a stale snapshot.
     private fun edit(transform: (AppState) -> AppState): Job = viewModelScope.launch {
-        val latest = store.state.first()
-        store.save(transform(latest))
+        store.update(transform)
     }
 }

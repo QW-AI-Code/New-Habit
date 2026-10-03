@@ -5,6 +5,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Timer
@@ -38,8 +41,9 @@ import androidx.compose.ui.window.Dialog
 import com.duck.twominute.AppState
 import com.duck.twominute.AppViewModel
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsDialog(state: AppState, viewModel: AppViewModel, onDismiss: () -> Unit) {
+fun SettingsDialog(state: AppState, viewModel: AppViewModel, onOpenAi: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val fa = state.isPersian
     val context = LocalContext.current
     var durationOpen by remember { mutableStateOf(false) }
@@ -197,11 +201,37 @@ fun SettingsDialog(state: AppState, viewModel: AppViewModel, onDismiss: () -> Un
 
             HorizontalDivider(color = Hairline)
 
+            if (onOpenAi != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = tr(fa, "هوش مصنوعی", "AI"),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            text = tr(fa, "کلید Gemini، مدل و مصرف توکن", "Gemini key, model and token usage"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Muted
+                        )
+                    }
+                    Pill(
+                        text = tr(fa, "تنظیمات", "Settings"),
+                        icon = Icons.Rounded.AutoAwesome,
+                        onClick = onOpenAi
+                    )
+                }
+
+                HorizontalDivider(color = Hairline)
+            }
+
             Text(
                 text = tr(fa, "پشتیبان‌گیری", "Backup"),
                 style = MaterialTheme.typography.bodyLarge
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Pill(
                     text = tr(fa, "خروجی", "Export"),
                     icon = Icons.Rounded.Download,

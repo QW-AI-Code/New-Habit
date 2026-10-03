@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 8-11: same exclusions as data_extraction_rules.xml. -->
+<full-backup-content>
+    <exclude domain="file" path="datastore/new_habit_ai.preferences_pb" />
+    <exclude domain="file" path="datastore/gemini_token_usage.preferences_pb" />
+</full-backup-content>
