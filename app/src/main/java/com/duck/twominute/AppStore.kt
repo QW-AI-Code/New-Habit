@@ -21,6 +21,9 @@ class AppStore(context: Context) {
         ignoreUnknownKeys = true
         encodeDefaults = true
         prettyPrint = true
+        // An unknown enum value (for example from a newer backup) falls back to the
+        // field's default instead of making the whole state unreadable.
+        coerceInputValues = true
     }
 
     val state: Flow<AppState> = dataStore.data.map { preferences -> read(preferences) }
@@ -39,6 +42,13 @@ class AppStore(context: Context) {
     suspend fun update(transform: (AppState) -> AppState): AppState {
         var written = AppState()
         dataStore.edit { preferences ->
+            val raw = preferences[STATE_KEY]
+            if (raw != null && decode(raw) == null) {
+                // v1.1.0: never overwrite unreadable data without keeping a copy. Before,
+                // the next tap replaced it with an empty state and the history was gone.
+                preferences[CORRUPT_KEY] = raw
+                Log.w("AppStore", "Stored state is unreadable; a copy was kept before writing")
+            }
             val next = transform(read(preferences))
             preferences[STATE_KEY] = encode(next)
             written = next
@@ -65,5 +75,6 @@ class AppStore(context: Context) {
 
     private companion object {
         val STATE_KEY = stringPreferencesKey("state")
+        val CORRUPT_KEY = stringPreferencesKey("state_unreadable_copy")
     }
 }

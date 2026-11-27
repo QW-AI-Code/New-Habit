@@ -25,7 +25,8 @@ class AlarmScheduler(context: Context) {
     private val alarmManager = appContext.getSystemService(AlarmManager::class.java)
 
     fun schedule(identity: Identity) {
-        cancel(identity.id)
+        // Re-arming keeps a pending snooze: only the regular slot alarms are replaced.
+        cancelSlots(identity.id)
         if (identity.archived || alarmManager == null) return
         identity.reminderSlots().forEachIndexed { slot, time ->
             scheduleSlot(identity, slot, time, System.currentTimeMillis())
@@ -56,11 +57,15 @@ class AlarmScheduler(context: Context) {
 
         val triggerAt = next.toInstant().toEpochMilli()
         val pending = pendingIntent(identity, slot, triggerAt)
-        val exactAllowed = canScheduleExact()
-        if (exactAllowed) {
-            manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
-        } else {
-            // Still deliver reminders on devices where exact-alarm special access is off.
+        try {
+            if (canScheduleExact()) {
+                manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+            } else {
+                // Still deliver reminders on devices where exact-alarm special access is off.
+                manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+            }
+        } catch (security: SecurityException) {
+            // Exact-alarm access was revoked between the check and the call.
             manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
         }
     }
@@ -68,10 +73,20 @@ class AlarmScheduler(context: Context) {
     fun canScheduleExact(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager?.canScheduleExactAlarms() == true
 
+    /** Everything of an identity, including pending snoozes: used on delete, archive and restore. */
     fun cancel(identityId: Long) {
+        cancelSlots(identityId)
+        // A pending snooze of a deleted or archived identity must not ring either.
+        for (slot in 0 until ReminderPlanner.MAX_SLOTS) cancelCode(code(identityId, slot, KIND_SNOOZE))
+    }
+
+    private fun cancelSlots(identityId: Long) {
         for (slot in 0 until ReminderPlanner.MAX_SLOTS) cancelCode(slotCode(identityId, slot))
         cancelCode(legacyCode(identityId))
     }
+
+    /** Cancels the snoozed ring of one slot (its intent has no action, like the slot alarm). */
+    fun cancelSnooze(identityId: Long, slot: Int) = cancelCode(code(identityId, slot, KIND_SNOOZE))
 
     private fun cancelCode(code: Int) {
         val intent = Intent(appContext, ReminderReceiver::class.java)

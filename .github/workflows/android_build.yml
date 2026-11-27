@@ -81,6 +81,11 @@ jobs:
           keytool -list -keystore "$path" -storepass "$KEYSTORE_PASSWORD" >/dev/null
           echo "enabled=true" >> "$GITHUB_OUTPUT"
 
+      # v1.1.0: the reminder schedule and Jalali calendar are covered by JVM unit
+      # tests; a failing test stops the run before any APK is built or published.
+      - name: Run unit tests
+        run: gradle --no-daemon --stacktrace testDebugUnitTest
+
       - name: Build release APKs
         env:
           SIGNING_STORE_FILE: ${{ steps.signing.outputs.enabled == 'true' && format('{0}/release.jks', runner.temp) || '' }}

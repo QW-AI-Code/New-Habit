@@ -96,12 +96,8 @@ fun durationLabel(seconds: Int, fa: Boolean): String {
 
 fun formatReminderTime(hour: Int?, minute: Int?, fa: Boolean): String {
     if (hour == null) return tr(fa, "تنظیم یادآور", "Set reminder")
-    val h = hour.coerceIn(0, 23)
-    val m = (minute ?: 0).coerceIn(0, 59)
-    val displayHour = if (h == 0) 12 else if (h > 12) h - 12 else h
-    val suffix = if (h < 12) tr(fa, "صبح", "AM") else tr(fa, "عصر", "PM")
-    val label = "%02d:%02d %s".format(Locale.US, displayHour, m, suffix)
-    return if (fa) label.toPersianDigits() else label
+    // One wording for the whole app (v1.1.0): 12:30 is «ظهر», 21:00 is «شب», not «عصر».
+    return com.duck.twominute.reminders.ReminderText.clock(hour, minute ?: 0, fa)
 }
 
 /**

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.Icon
@@ -33,6 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -46,18 +48,34 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.duck.twominute.AppViewModel
+import com.duck.twominute.MainActivity
 import com.duck.twominute.ai.planner.PlannerViewModel
 
 @Composable
-fun TwoMinuteRoot(viewModel: AppViewModel = viewModel(), planner: PlannerViewModel = viewModel()) {
+fun TwoMinuteRoot(
+    viewModel: AppViewModel = viewModel(),
+    planner: PlannerViewModel = viewModel(),
+    openTabRequest: String? = null,
+    onOpenTabHandled: () -> Unit = {}
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    /** Epoch day handed from the calendar to the reminder editor ("add a reminder for this day"). */
+    var reminderPrefill by rememberSaveable { mutableStateOf<Long?>(null) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var aiSettingsOpen by rememberSaveable { mutableStateOf(false) }
     var introDone by rememberSaveable { mutableStateOf(false) }
     val fa = state.isPersian
-    val labels = listOf(tr(fa, "امروز", "Today"), tr(fa, "هویت‌ها", "Identities"), tr(fa, "تقویم", "Calendar"), tr(fa, "پیشرفت", "Progress"), tr(fa, "درباره", "About"))
-    val icons = listOf(Icons.Rounded.Today, Icons.Rounded.Person, Icons.Rounded.CalendarMonth, Icons.Rounded.Insights, Icons.Rounded.Info)
+    val labels = listOf(tr(fa, "امروز", "Today"), tr(fa, "هویت‌ها", "Identities"), tr(fa, "یادآور", "Reminders"), tr(fa, "تقویم", "Calendar"), tr(fa, "پیشرفت", "Progress"), tr(fa, "درباره", "About"))
+    val icons = listOf(Icons.Rounded.Today, Icons.Rounded.Person, Icons.Rounded.NotificationsActive, Icons.Rounded.CalendarMonth, Icons.Rounded.Insights, Icons.Rounded.Info)
+    // A tap on a reminder notification opens the Reminders tab.
+    LaunchedEffect(openTabRequest) {
+        if (openTabRequest == MainActivity.TAB_REMINDERS) {
+            selectedTab = TAB_REMINDERS
+            introDone = true
+            onOpenTabHandled()
+        }
+    }
     val contentAlpha by animateFloatAsState(targetValue = if (introDone) 1f else 0f, animationSpec = tween(520), label = "content-alpha")
     val contentScale by animateFloatAsState(targetValue = if (introDone) 1f else 1.05f, animationSpec = tween(620), label = "content-scale")
 
@@ -85,10 +103,11 @@ fun TwoMinuteRoot(viewModel: AppViewModel = viewModel(), planner: PlannerViewMod
                         Box(Modifier.fillMaxSize().padding(innerPadding)) {
                             AnimatedContent(targetState = selectedTab, transitionSpec = { (fadeIn(tween(260)) + slideInVertically(animationSpec = tween(300)) { full -> full / 24 }) togetherWith fadeOut(tween(160)) }, label = "tab-switch") { tab ->
                                 when (tab) {
-                                    0 -> HomeScreen(state, viewModel) { settingsOpen = true }
+                                    0 -> HomeScreen(state, viewModel, onOpenReminders = { selectedTab = TAB_REMINDERS }) { settingsOpen = true }
                                     1 -> IdentitiesScreen(state, viewModel, planner)
-                                    2 -> CalendarScreen(state)
-                                    3 -> ProgressScreen(state)
+                                    TAB_REMINDERS -> RemindersScreen(state, viewModel, reminderPrefill) { reminderPrefill = null }
+                                    3 -> CalendarScreen(state) { day -> reminderPrefill = day.toEpochDay(); selectedTab = TAB_REMINDERS }
+                                    4 -> ProgressScreen(state)
                                     else -> AboutScreen(state)
                                 }
                             }
@@ -102,3 +121,5 @@ fun TwoMinuteRoot(viewModel: AppViewModel = viewModel(), planner: PlannerViewMod
         }
     }
 }
+
+private const val TAB_REMINDERS = 2

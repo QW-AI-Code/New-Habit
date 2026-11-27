@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.duck.twominute.AppState
 import com.duck.twominute.AppViewModel
+import com.duck.twominute.toPersianDigits
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -170,7 +171,7 @@ fun SettingsDialog(state: AppState, viewModel: AppViewModel, onOpenAi: (() -> Un
                 }
                 Stepper(
                     label = "",
-                    value = state.goalToday.toString(),
+                    value = if (fa) state.goalToday.toString().toPersianDigits() else state.goalToday.toString(),
                     onMinus = { viewModel.setDailyGoal(state.goalToday - 1) },
                     onPlus = { viewModel.setDailyGoal(state.goalToday + 1) }
                 )

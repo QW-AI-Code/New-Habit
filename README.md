@@ -4,6 +4,14 @@ Kotlin + Jetpack Compose Android habit-building app, Persian first and English s
 
 **Languages:** [English](README.md) · [فارسی](README.fa.md)
 
+## What's new in v1.1.0
+
+- **Date-and-time reminders:** A new Reminders tab. Pick a day on the Jalali calendar and an exact time, or ring every N minutes on that day (for example every hour from 09:00 to 21:00). Repeat daily, on chosen weekdays, or monthly/yearly on the Jalali calendar, with an optional end date.
+- **Jalali date picker and live preview:** A Saturday-first Jalali month grid with Persian digits, and the next 5 notifications shown before saving.
+- **Reminder health check:** Shows what could stop reminders (notifications, exact alarms, battery optimization), opens the right settings and sends a real test notification.
+- **Root-cause fix:** Reminder notifications were never posted on Android 8 to 12 because of a wrong `POST_NOTIFICATIONS` check. Exact alarms on Android 14+ now use `USE_EXACT_ALARM`.
+- **Calendar integration, missed-ring catch-up after reboot, minute-exact time picker, Persian digits everywhere, safer storage, and unit tests in CI.** See `.github/release-notes.md` for the full list.
+
 ## What's new in v1.0.1
 
 - **AI habit coach (Gemini):** Write any goal, such as learning English or building your ideal body, and get a complete identity-based plan built on proven behavior science: identity statement, scientific methods, phases on a week timeline, habits with cue, reason and level-up rule, reminder times, weekdays, milestones, if-then obstacle plans, tips and a safety note for health goals.
@@ -26,11 +34,11 @@ Kotlin + Jetpack Compose Android habit-building app, Persian first and English s
 
 ## Release
 
-- **Version:** 1.0.1
-- **Version code:** 2
-- **APK names:** `new-habit-v1.0.1-<abi>.apk`
+- **Version:** 1.1.0
+- **Version code:** 3
+- **APK names:** `new-habit-v1.1.0-<abi>.apk`
 - **ABIs:** armeabi-v7a, arm64-v8a, x86, x86_64
-- **Workflow:** Run `New Habit Android Build` manually with tag `v1.0.1`.
+- **Workflow:** Run `New Habit Android Build` manually with tag `v1.1.0`. Unit tests (`testDebugUnitTest`) run before the release build.
 
 ## Security audit summary
 
@@ -39,7 +47,8 @@ Kotlin + Jetpack Compose Android habit-building app, Persian first and English s
 | Repository secrets | No secrets are stored in source; release signing uses GitHub Actions secrets. |
 | User data | Progress remains in local DataStore unless the user exports it. |
 | Gemini API key | Stored only on the device in a separate DataStore, excluded from the JSON export, Android cloud backup and device transfer. Sent only to Google's Gemini API over HTTPS. |
-| Permissions | Notifications, vibration, exact alarms, audio, boot restore and internet (AI planner only) are used only for their stated features. |
+| Reminder intents | Reminder receivers are not exported; every alarm uses an immutable PendingIntent with its own data URI. |
+| Permissions | Notifications, vibration, exact alarms (`USE_EXACT_ALARM`, `SCHEDULE_EXACT_ALARM` up to Android 12), the battery-optimization prompt (on user tap only), audio, boot restore and internet (AI planner only) are used only for their stated features. |
 
 ## Typography
 

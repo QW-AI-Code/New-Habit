@@ -1,6 +1,5 @@
 package com.duck.twominute.alarms
 
-import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -8,13 +7,11 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
 import com.duck.twominute.AppState
 import com.duck.twominute.AppStore
 import com.duck.twominute.Identity
@@ -64,6 +61,7 @@ class ReminderReceiver : BroadcastReceiver() {
             }
             ACTION_DONE -> {
                 cancelNotification(context, identityId, slot)
+                AlarmScheduler(context).cancelSnooze(identityId, slot)
                 store.update { current -> logRepetition(current, identityId) }
                 return
             }
@@ -175,18 +173,25 @@ class ReminderReceiver : BroadcastReceiver() {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
+            .setWhen(System.currentTimeMillis())
+            .setShowWhen(true)
             .setContentIntent(openApp)
             .addAction(0, if (fa) "انجام شد" else "Done", donePending)
             .addAction(0, if (fa) "شروع" else "Start now", openApp)
             .addAction(0, if (fa) "۱۰ دقیقه بعد" else "Snooze 10 min", snoozePending)
             .build()
 
-        val allowed = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
-        if (allowed) {
+        // v1.1.0 fix: v1.0.x checked checkSelfPermission(POST_NOTIFICATIONS), which is
+        // always "denied" on Android 8-12 (the permission only exists on 13+), so no
+        // reminder was ever shown there. This check is correct on every version.
+        if (!ReminderNotifier.canPost(context)) {
+            Log.w(TAG, "Notifications are disabled for the app; reminder not shown")
+            return
+        }
+        try {
             manager.notify(AlarmScheduler.code(identity.id, slot, AlarmScheduler.KIND_NOTIFICATION), notification)
+        } catch (error: SecurityException) {
+            Log.w(TAG, "Notification could not be posted", error)
         }
     }
 

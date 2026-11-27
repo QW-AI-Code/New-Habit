@@ -1,5 +1,7 @@
 package com.duck.twominute.ui
 
+import com.duck.twominute.toPersianDigits
+
 import android.app.Activity
 import android.content.Intent
 import android.media.RingtoneManager
@@ -145,11 +147,11 @@ private fun IdentityCard(identity: Identity, fa: Boolean, viewModel: AppViewMode
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Pill(durationLabel(identity.safeDuration, fa), icon = Icons.Rounded.Timer, accent = accent)
             Pill(reminderSummary(identity, fa), icon = if (identity.hasReminder()) Icons.Rounded.Notifications else Icons.Rounded.NotificationsOff, accent = accent, maxLines = 2)
-            if (identity.safeTimesPerDay > 1) Pill(tr(fa, "${identity.safeTimesPerDay} بار در روز", "${identity.safeTimesPerDay}x a day"), icon = Icons.Rounded.Check, accent = accent)
-            if (identity.currentStreak() > 0) Pill(tr(fa, "${identity.currentStreak()} روز پیوسته", "${identity.currentStreak()} day streak"), icon = Icons.Rounded.LocalFireDepartment, accent = Amber)
+            if (identity.safeTimesPerDay > 1) Pill(tr(fa, "${identity.safeTimesPerDay} بار در روز".toPersianDigits(), "${identity.safeTimesPerDay}x a day"), icon = Icons.Rounded.Check, accent = accent)
+            if (identity.currentStreak() > 0) Pill(tr(fa, "${identity.currentStreak()} روز پیوسته".toPersianDigits(), "${identity.currentStreak()} day streak"), icon = Icons.Rounded.LocalFireDepartment, accent = Amber)
         }
         Spacer(Modifier.height(12.dp)); ThinBar(identity.consistency(30), accent, Modifier.fillMaxWidth()); Spacer(Modifier.height(6.dp))
-        Text(tr(fa, "۳۰ روز گذشته: ${(identity.consistency(30) * 100).toInt()}٪ · مجموع ${identity.successes.size} بار", "Last 30 days: ${(identity.consistency(30) * 100).toInt()}% · ${identity.successes.size} total"), style = MaterialTheme.typography.labelMedium, color = Muted)
+        Text(tr(fa, "۳۰ روز گذشته: ${(identity.consistency(30) * 100).toInt()}٪ · مجموع ${identity.successes.size} بار".toPersianDigits(), "Last 30 days: ${(identity.consistency(30) * 100).toInt()}% · ${identity.successes.size} total"), style = MaterialTheme.typography.labelMedium, color = Muted)
     }
 }
 
@@ -200,7 +202,7 @@ private fun IdentityLivePreview(draft: Identity, fa: Boolean) {
                 selected = draft.hasReminder(),
                 maxLines = 2
             )
-            if (draft.safeTimesPerDay > 1) Pill(tr(fa, "${draft.safeTimesPerDay} بار در روز", "${draft.safeTimesPerDay}x a day"), icon = Icons.Rounded.Check, accent = accent)
+            if (draft.safeTimesPerDay > 1) Pill(tr(fa, "${draft.safeTimesPerDay} بار در روز".toPersianDigits(), "${draft.safeTimesPerDay}x a day"), icon = Icons.Rounded.Check, accent = accent)
         }
     }
 }
@@ -271,11 +273,11 @@ private fun IdentityEditor(fa: Boolean, initial: Identity?, defaultDuration: Int
             FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Identity.DURATION_PRESETS.forEach { preset -> Pill(durationLabel(preset, fa), accent = accent, selected = draft.safeDuration == preset) { draft = draft.copy(durationSeconds = preset) } }; Pill(tr(fa, "دلخواه", "Custom"), icon = Icons.Rounded.Timer, accent = accent, selected = draft.safeDuration !in Identity.DURATION_PRESETS) { durationOpen = true } }
             Spacer(Modifier.height(8.dp))
             Text(tr(fa, "انتخاب فعلی: ", "Currently: ") + formatClock(draft.safeDuration) + " · " + durationLabel(draft.safeDuration, fa), style = MaterialTheme.typography.labelMedium, color = accent)
-            Spacer(Modifier.height(14.dp)); Stepper(tr(fa, "چند بار در روز", "Times per day"), draft.safeTimesPerDay.toString(), accent, { draft = draft.withTimesPerDay(draft.safeTimesPerDay - 1); reminderNote = "" }, { draft = draft.withTimesPerDay(draft.safeTimesPerDay + 1); reminderNote = "" })
+            Spacer(Modifier.height(14.dp)); Stepper(tr(fa, "چند بار در روز", "Times per day"), if (fa) draft.safeTimesPerDay.toString().toPersianDigits() else draft.safeTimesPerDay.toString(), accent, { draft = draft.withTimesPerDay(draft.safeTimesPerDay - 1); reminderNote = "" }, { draft = draft.withTimesPerDay(draft.safeTimesPerDay + 1); reminderNote = "" })
             if (draft.safeTimesPerDay > 1) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = if (draft.hasReminder()) tr(fa, "${draft.safeTimesPerDay} یادآور جدا برای هر تکرار تنظیم شده است", "${draft.safeTimesPerDay} separate reminders, one for each repetition")
+                    text = if (draft.hasReminder()) tr(fa, "${draft.safeTimesPerDay} یادآور جدا برای هر تکرار تنظیم شده است".toPersianDigits(), "${draft.safeTimesPerDay} separate reminders, one for each repetition")
                     else tr(fa, "با روشن کردن یادآور، برای هر تکرار یک یادآور جدا ساخته می‌شود", "Turn on reminders to get one reminder per repetition"),
                     style = MaterialTheme.typography.labelMedium,
                     color = accent
@@ -290,7 +292,7 @@ private fun IdentityEditor(fa: Boolean, initial: Identity?, defaultDuration: Int
         }
         SectionCard {
             Text(
-                tr(fa, "یادآورها", "Reminders") + if (draft.hasReminder()) " · " + draft.reminderSlots().size.toString() else "",
+                tr(fa, "یادآورها", "Reminders") + if (draft.hasReminder()) " · " + draft.reminderSlots().size.toString().let { if (fa) it.toPersianDigits() else it } else "",
                 style = MaterialTheme.typography.labelLarge,
                 color = Muted
             )
@@ -309,7 +311,7 @@ private fun IdentityEditor(fa: Boolean, initial: Identity?, defaultDuration: Int
                     slots.forEachIndexed { index, time ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                tr(fa, "یادآور ${index + 1}", "Reminder ${index + 1}"),
+                                tr(fa, "یادآور ${index + 1}".toPersianDigits(), "Reminder ${index + 1}"),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Ink,
                                 modifier = Modifier.weight(1f)
@@ -366,7 +368,7 @@ private fun IdentityEditor(fa: Boolean, initial: Identity?, defaultDuration: Int
             initialHour = initialTime.hour,
             initialMinute = initialTime.minute,
             accent = accent,
-            title = if (draft.safeTimesPerDay > 1) tr(fa, "زمان یادآور ${slotIndex + 1}", "Reminder ${slotIndex + 1} time") else null,
+            title = if (draft.safeTimesPerDay > 1) tr(fa, "زمان یادآور ${slotIndex + 1}".toPersianDigits(), "Reminder ${slotIndex + 1} time") else null,
             // The draft only changes on confirm: Cancel really cancels (v1.0.0 kept the live value).
             onDismiss = { editingSlot = null },
             onConfirm = { hour, minute ->

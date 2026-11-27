@@ -77,6 +77,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.duck.twominute.AppState
 import com.duck.twominute.Identity
+import com.duck.twominute.toPersianDigits
 import java.time.LocalDate
 import java.util.Locale
 import kotlin.math.PI
@@ -530,24 +531,40 @@ fun ReminderTimeDialog(
             Spacer(Modifier.height(16.dp))
             MiniClockFace(hour, minute, accent)
             Spacer(Modifier.height(12.dp))
-            Text("%02d:%02d".format(Locale.US, hour, minute), fontSize = 40.sp, fontWeight = FontWeight.Bold, color = accent)
+            Text(if (fa) "%02d:%02d".format(Locale.US, hour, minute).toPersianDigits() else "%02d:%02d".format(Locale.US, hour, minute), fontSize = 40.sp, fontWeight = FontWeight.Bold, color = accent)
             Text(formatReminderTime(hour, minute, fa), style = MaterialTheme.typography.bodyMedium, color = Ink)
             Spacer(Modifier.height(18.dp))
             Stepper(
                 label = tr(fa, "ساعت", "Hour"),
-                value = "%02d".format(Locale.US, hour),
+                value = if (fa) "%02d".format(Locale.US, hour).toPersianDigits() else "%02d".format(Locale.US, hour),
                 accent = accent,
                 onMinus = { hour = (hour + 23) % 24; onLiveChange(hour, minute) },
                 onPlus = { hour = (hour + 1) % 24; onLiveChange(hour, minute) }
             )
             Spacer(Modifier.height(10.dp))
+            // v1.1.0: minute-exact (09:07 is possible); the chips below jump in quarters.
             Stepper(
                 label = tr(fa, "دقیقه", "Minute"),
-                value = "%02d".format(Locale.US, minute),
+                value = if (fa) "%02d".format(Locale.US, minute).toPersianDigits() else "%02d".format(Locale.US, minute),
                 accent = accent,
-                onMinus = { minute = (minute + 55) % 60; onLiveChange(hour, minute) },
-                onPlus = { minute = (minute + 5) % 60; onLiveChange(hour, minute) }
+                onMinus = { minute = (minute + 59) % 60; onLiveChange(hour, minute) },
+                onPlus = { minute = (minute + 1) % 60; onLiveChange(hour, minute) }
             )
+            Spacer(Modifier.height(8.dp))
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                listOf(0, 10, 15, 20, 30, 40, 45, 50).forEach { preset ->
+                    Pill(
+                        text = if (fa) ":%02d".format(Locale.US, preset).toPersianDigits() else ":%02d".format(Locale.US, preset),
+                        accent = accent,
+                        selected = minute == preset,
+                        onClick = { minute = preset; onLiveChange(hour, preset) }
+                    )
+                }
+            }
             Spacer(Modifier.height(16.dp))
             Text(tr(fa, "زمان‌های پرکاربرد", "Quick picks"), style = MaterialTheme.typography.labelMedium, color = Muted)
             Spacer(Modifier.height(8.dp))
@@ -560,7 +577,7 @@ fun ReminderTimeDialog(
                     val h = preset.first
                     val m = preset.second
                     Pill(
-                        text = "%02d:%02d".format(Locale.US, h, m),
+                        text = if (fa) "%02d:%02d".format(Locale.US, h, m).toPersianDigits() else "%02d:%02d".format(Locale.US, h, m),
                         accent = accent,
                         selected = hour == h && minute == m,
                         onClick = { hour = h; minute = m; onLiveChange(h, m) }

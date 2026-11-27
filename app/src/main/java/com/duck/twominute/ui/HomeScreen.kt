@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -64,7 +65,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.duck.twominute.AppState
 import com.duck.twominute.AppViewModel
 import com.duck.twominute.Identity
-import com.duck.twominute.PersianDate
+import com.duck.twominute.toPersianDigits
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -72,7 +73,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun HomeScreen(state: AppState, viewModel: AppViewModel, onOpenSettings: () -> Unit) {
+fun HomeScreen(state: AppState, viewModel: AppViewModel, onOpenReminders: () -> Unit = {}, onOpenSettings: () -> Unit) {
     val fa = state.isPersian
     val running by viewModel.running.collectAsStateWithLifecycle()
     val paused by viewModel.paused.collectAsStateWithLifecycle()
@@ -144,7 +145,7 @@ fun HomeScreen(state: AppState, viewModel: AppViewModel, onOpenSettings: () -> U
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = "${state.doneToday} / ${state.goalToday}",
+                    text = num("${state.doneToday} / ${state.goalToday}", fa),
                     fontWeight = FontWeight.Bold,
                     color = if (state.doneToday >= state.goalToday) Turquoise else Ink
                 )
@@ -158,6 +159,8 @@ fun HomeScreen(state: AppState, viewModel: AppViewModel, onOpenSettings: () -> U
             Spacer(modifier = Modifier.height(16.dp))
             WeekStrip(state = state, fa = fa)
         }
+
+        NextReminderCard(state, fa, onOpenReminders)
 
         Spacer(modifier = Modifier.height(18.dp))
 
@@ -385,9 +388,9 @@ private fun HomeHeader(
     onOpenSettings: () -> Unit
 ) {
     val today = LocalDate.now()
-    val jalali = PersianDate.fromGregorian(today)
     val dateLabel = if (fa) {
-        "${jalali.day} ${PersianDate.monthName(jalali.month)} ${jalali.year}"
+        // v1.1.0: weekday and Persian digits («جمعه ۶ آذر ۱۴۰۵», was «6 آذر 1405»).
+        com.duck.twominute.reminders.ReminderText.date(today, true)
     } else {
         today.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.ENGLISH))
     }
@@ -422,7 +425,7 @@ private fun HomeHeader(
                 )
                 Spacer(modifier = Modifier.width(5.dp))
                 Text(
-                    text = "$streak",
+                    text = num("$streak", fa),
                     color = Amber,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.labelLarge
@@ -500,7 +503,7 @@ private fun ChecklistRow(
         ) {
             if (identity.safeTimesPerDay > 1 && !done && identity.todayCount > 0) {
                 Text(
-                    text = "${identity.todayCount}/${identity.safeTimesPerDay}",
+                    text = num("${identity.todayCount}/${identity.safeTimesPerDay}", fa),
                     fontSize = 10.sp,
                     color = accent,
                     fontWeight = FontWeight.Bold
@@ -535,5 +538,48 @@ private fun EmptyToday(fa: Boolean) {
             color = Muted,
             style = MaterialTheme.typography.bodyMedium
         )
+    }
+}
+
+/** Persian digits in the Persian UI. */
+private fun num(text: String, fa: Boolean): String = if (fa) text.toPersianDigits() else text
+
+/** The soonest reminder of the next 24 hours, one tap away from the Reminders tab. */
+@Composable
+private fun NextReminderCard(state: AppState, fa: Boolean, onOpen: () -> Unit) {
+    val now = System.currentTimeMillis()
+    val soonest = state.reminders
+        .mapNotNull { reminder -> nextRing(reminder, now)?.let { reminder to it } }
+        .minByOrNull { it.second }
+        ?: return
+    val atMillis = soonest.second.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+    if (atMillis - now > 24L * 60L * 60L * 1000L) return
+    Spacer(modifier = Modifier.height(12.dp))
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Amber.copy(alpha = 0.10f), RoundedCornerShape(18.dp))
+            .border(1.dp, Amber.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
+            .clickable { onOpen() }
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        Icon(imageVector = Icons.Rounded.Alarm, contentDescription = null, tint = Amber, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = soonest.first.title.ifBlank { tr(fa, "یادآور", "Reminder") },
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = com.duck.twominute.reminders.ReminderText.clock(soonest.second.hour, soonest.second.minute, fa) + " · " +
+                    com.duck.twominute.reminders.ReminderText.relative(now, atMillis, fa),
+                style = MaterialTheme.typography.bodySmall,
+                color = Amber
+            )
+        }
     }
 }

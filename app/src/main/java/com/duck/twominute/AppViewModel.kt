@@ -4,6 +4,11 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.duck.twominute.alarms.AlarmScheduler
+import com.duck.twominute.alarms.ReminderAlarmScheduler
+import com.duck.twominute.alarms.ReminderNotifier
+import com.duck.twominute.reminders.Reminder
+import com.duck.twominute.reminders.ReminderSchedule
+import java.time.LocalDate
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +24,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val store = AppStore(application)
     private val scheduler = AlarmScheduler(application)
+    private val reminderScheduler = ReminderAlarmScheduler(application)
     private val feedback = Feedback(application)
 
     val state: StateFlow<AppState> =
@@ -137,6 +143,87 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         if (size == 0) current else current.copy(currentIndex = (current.currentIndex + 1) % size)
     }
 
+    // ---------------------------------------------------------------- reminders (v1.1.0)
+
+    /**
+     * Inserts or updates a standalone reminder and arms its next ring. Saving counts
+     * as "handled up to now", so a daily reminder whose time already passed today is
+     * not reported as missed after a reboot. [onDone] receives the next ring (epoch
+     * millis) or null when the reminder has no future ring.
+     */
+    fun saveReminder(raw: Reminder, onDone: (Long?) -> Unit = {}) = viewModelScope.launch {
+        val now = System.currentTimeMillis()
+        var saved: Reminder? = null
+        store.update { current ->
+            val exists = raw.id != 0L && current.reminders.any { it.id == raw.id }
+            val id = if (exists) raw.id else maxOf(now, (current.reminders.maxOfOrNull { it.id } ?: 0L) + 1)
+            val clean = raw.copy(
+                id = id,
+                title = raw.title.trim(),
+                note = raw.note.trim(),
+                weekdays = raw.weekdays.filter { it in 1..7 }.distinct().sorted(),
+                intervalMinutes = if (raw.intervalMinutes <= 0) 0 else raw.intervalMinutes.coerceIn(ReminderSchedule.MIN_INTERVAL, ReminderSchedule.MAX_INTERVAL),
+                untilEpochDay = raw.untilEpochDay?.takeIf { it >= raw.startEpochDay },
+                doneEpochDays = ReminderSchedule.pruneDoneDays(raw.doneEpochDays, LocalDate.now()),
+                enabled = true,
+                lastHandledAt = now,
+                createdAt = if (raw.createdAt > 0L) raw.createdAt else now
+            )
+            saved = clean
+            if (exists) {
+                current.copy(reminders = current.reminders.map { if (it.id == id) clean else it })
+            } else {
+                current.copy(reminders = current.reminders + clean)
+            }
+        }
+        val written = saved
+        val next = if (written == null) null else {
+            ReminderNotifier.cancel(getApplication<Application>(), written.id)
+            reminderScheduler.cancelSnooze(written.id)
+            reminderScheduler.schedule(written, now)
+        }
+        onDone(next)
+    }
+
+    fun deleteReminder(id: Long) = viewModelScope.launch {
+        reminderScheduler.cancel(id)
+        ReminderNotifier.cancel(getApplication<Application>(), id)
+        store.update { current -> current.copy(reminders = current.reminders.filterNot { it.id == id }) }
+    }
+
+    fun setReminderEnabled(id: Long, enabled: Boolean) = viewModelScope.launch {
+        val now = System.currentTimeMillis()
+        val written = store.update { current ->
+            current.copy(
+                reminders = current.reminders.map {
+                    // Switching on again starts from now: rings of the switched-off time are not replayed.
+                    if (it.id == id) it.copy(enabled = enabled, lastHandledAt = if (enabled) now else it.lastHandledAt) else it
+                }
+            )
+        }
+        val reminder = written.reminders.firstOrNull { it.id == id } ?: return@launch
+        if (enabled) {
+            reminderScheduler.schedule(reminder, now)
+        } else {
+            reminderScheduler.cancel(id)
+            ReminderNotifier.cancel(getApplication<Application>(), id)
+        }
+    }
+
+    /** Re-enables "the rest of today" after a mistaken "Done for today". */
+    fun clearReminderDoneToday(id: Long) = viewModelScope.launch {
+        val today = LocalDate.now().toEpochDay()
+        val written = store.update { current ->
+            current.copy(reminders = current.reminders.map { if (it.id == id) it.copy(doneEpochDays = it.doneEpochDays - today) else it })
+        }
+        written.reminders.firstOrNull { it.id == id }?.let { reminderScheduler.schedule(it) }
+    }
+
+    /** Fires a test notification through AlarmManager in a few seconds. */
+    fun sendTestReminder(): Long = reminderScheduler.scheduleTest()
+
+    fun canScheduleExactReminders(): Boolean = reminderScheduler.canScheduleExact()
+
     // ---------------------------------------------------------------- settings
 
     fun setLanguage(language: String) = edit { it.copy(language = language) }
@@ -172,12 +259,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             onResult(false)
             return@launch
         }
-        // Alarms of identities that are not in the backup would otherwise keep firing.
-        store.state.first().identities.forEach { scheduler.cancel(it.id) }
-        store.save(decoded)
-        decoded.identities
+        // Alarms of identities and reminders that are not in the backup would otherwise keep firing.
+        val before = store.state.first()
+        before.identities.forEach { scheduler.cancel(it.id) }
+        before.reminders.forEach { reminderScheduler.cancel(it.id) }
+        // Restored reminders start from now: rings between the backup and today are not replayed.
+        val now = System.currentTimeMillis()
+        val restored = decoded.copy(reminders = decoded.reminders.map { it.copy(lastHandledAt = maxOf(it.lastHandledAt, now)) })
+        store.save(restored)
+        restored.identities
             .filter { it.hasReminder() && !it.archived }
             .forEach { scheduler.schedule(it) }
+        restored.reminders.forEach { reminderScheduler.schedule(it, now) }
         onResult(true)
     }
 

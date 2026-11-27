@@ -64,13 +64,13 @@ fun ProgressScreen(state: AppState) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IdentityAvatar(identity, 38.dp); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) {
                         Text(identity.title(fa), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                        Text(tr(fa, "${identity.currentStreak()} روز پیوسته · رکورد ${identity.bestStreak()}", "${identity.currentStreak()} day streak · best ${identity.bestStreak()}"), style = MaterialTheme.typography.bodySmall, color = Muted)
+                        Text(tr(fa, "${identity.currentStreak()} روز پیوسته · رکورد ${identity.bestStreak()}".toPersianDigits(), "${identity.currentStreak()} day streak · best ${identity.bestStreak()}"), style = MaterialTheme.typography.bodySmall, color = Muted)
                     }
                     Text(number(identity.successes.size), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = accent)
                 }
                 Spacer(Modifier.height(12.dp)); ThinBar(identity.consistency(30), accent, Modifier.fillMaxWidth()); Spacer(Modifier.height(6.dp))
                 val consistency = (identity.consistency(30) * 100).toInt()
-                Text(tr(fa, "پایداری ۳۰ روزه: ${consistency.toString().toPersianDigits()}٪ · ${number(identity.totalSeconds / 60)} دقیقه", "30 day consistency: $consistency% · ${identity.totalSeconds / 60} min"), style = MaterialTheme.typography.labelMedium, color = Muted)
+                Text(tr(fa, "پایداری ۳۰ روزه: ${consistency.toString().toPersianDigits()}٪ · ${number(identity.totalSeconds / 60)} دقیقه".toPersianDigits(), "30 day consistency: $consistency% · ${identity.totalSeconds / 60} min"), style = MaterialTheme.typography.labelMedium, color = Muted)
             }
             Spacer(Modifier.height(12.dp))
         }

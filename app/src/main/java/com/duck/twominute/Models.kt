@@ -1,5 +1,6 @@
 package com.duck.twominute
 
+import com.duck.twominute.reminders.Reminder
 import kotlinx.serialization.Serializable
 import java.time.Instant
 import java.time.LocalDate
@@ -203,7 +204,9 @@ data class AppState(
     val vibrate: Boolean = true,
     val chime: Boolean = true,
     val keepScreenOn: Boolean = true,
-    val showArchived: Boolean = false
+    val showArchived: Boolean = false,
+    /** Standalone date-and-time reminders (v1.1.0). Older backups simply have none. */
+    val reminders: List<Reminder> = emptyList()
 ) {
 
     val isPersian: Boolean get() = language == "fa"
